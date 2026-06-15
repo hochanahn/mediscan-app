@@ -48,8 +48,6 @@ main{max-width:1100px;margin:0 auto;padding:1.5rem;display:grid;grid-template-co
 .thumb img,.thumb canvas{width:100%;height:100%;object-fit:cover;background:#000;display:block;}
 .thumb.selected{border:2px solid var(--blue-600);}
 .thumb .remove{position:absolute;top:2px;right:2px;width:16px;height:16px;background:rgba(0,0,0,.65);border:none;border-radius:50%;color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-.thumb .dcm-label{position:absolute;inset:0;background:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
-.thumb .dcm-label span{color:#378ADD;font-size:9px;font-weight:700;}
 .btn-analyze{width:100%;background:var(--blue-600);color:#fff;border:none;border-radius:var(--rm);padding:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s;}
 .btn-analyze:hover:not(:disabled){background:var(--blue-800);}
 .btn-analyze:disabled{background:var(--border);color:var(--text-muted);cursor:not-allowed;}
@@ -168,13 +166,13 @@ main{max-width:1100px;margin:0 auto;padding:1.5rem;display:grid;grid-template-co
   <div style="display:flex;flex-direction:column;gap:1rem;">
     <div class="card">
       <div class="card-title">Upload medical image</div>
-      <div class="slice-info">📋 Supports <strong>X-ray, CT, and MRI</strong> images. Upload up to 5 images (JPEG, PNG, or DICOM). AI detects the type automatically.</div>
+      <div class="slice-info">📋 Supports <strong>X-ray, CT, and MRI</strong> images (JPEG or PNG). Upload up to 5 images. AI detects the type automatically.<br><span style="color:var(--text-muted)">DICOM (.dcm)? Open it in your hospital CD viewer and save as JPEG first.</span></div>
       <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
         <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <p>Click to upload or drag & drop</p>
-        <div class="hint">JPEG · PNG · DICOM (.dcm) · Max 20MB</div>
+        <div class="hint">JPEG · PNG · Max 20MB</div>
       </div>
-      <input type="file" id="fileInput" accept="image/*,.dcm,application/dicom" multiple onchange="handleFiles(event)">
+      <input type="file" id="fileInput" accept="image/*" multiple onchange="handleFiles(event)">
       <div class="thumbnails" id="thumbnails"></div>
       <button class="btn-analyze" id="analyzeBtn" onclick="startAnalysis()" disabled>
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -244,7 +242,7 @@ main{max-width:1100px;margin:0 auto;padding:1.5rem;display:grid;grid-template-co
           <div class="plan-popular">MOST POPULAR</div>
           <div class="plan-name">Basic</div>
           <div class="plan-price">$9.99 <sub>/mo</sub></div>
-          <ul class="plan-features"><li>Unlimited analyses</li><li>X-Ray · CT · MRI</li><li>DICOM support</li><li>History</li></ul>
+          <ul class="plan-features"><li>Unlimited analyses</li><li>X-Ray · CT · MRI</li><li>Visual overlay</li><li>History</li></ul>
         </div>
         <div class="plan" onclick="openModal('pro')">
           <div class="plan-name">Pro</div>
@@ -302,17 +300,20 @@ main{max-width:1100px;margin:0 auto;padding:1.5rem;display:grid;grid-template-co
 
 <div class="modal-backdrop" id="payModal">
   <div class="modal">
-    <h2>Upgrade your plan</h2>
-    <p id="modalDesc">Unlock unlimited analyses.</p>
-    <input type="text" placeholder="Cardholder name">
-    <input type="text" placeholder="Card number">
-    <div class="modal-row">
-      <input type="text" placeholder="MM / YY">
-      <input type="text" placeholder="CVC">
+    <h2 id="waitTitle">Your free trial has ended</h2>
+    <p id="modalDesc">You've used all 3 free analyses. A paid plan with unlimited analyses is coming soon.</p>
+    <div id="waitForm">
+      <p style="font-size:13px;color:var(--text-primary);font-weight:600;margin-bottom:8px;">Want early access + a launch discount?</p>
+      <input type="email" id="waitEmail" placeholder="Enter your email">
+      <div class="modal-btns">
+        <button class="btn-cancel" onclick="closeModal()">Maybe later</button>
+        <button class="btn-pay" onclick="joinWaitlist()">Notify me</button>
+      </div>
     </div>
-    <div class="modal-btns">
-      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn-pay" onclick="fakePay()">Pay with Stripe</button>
+    <div id="waitThanks" style="display:none;text-align:center;padding:1rem 0;">
+      <div style="font-size:32px;margin-bottom:8px;">✓</div>
+      <p style="font-size:14px;color:var(--success);font-weight:600;">Thank you! We'll email you when the paid plan launches.</p>
+      <button class="btn-cancel" style="margin-top:1rem;width:100%;padding:10px;border-radius:var(--rs);" onclick="closeModal()">Close</button>
     </div>
   </div>
 </div>
@@ -354,9 +355,9 @@ function updateUsagePill() {
 
 // ── File handling ──────────────────────────────────────
 function handleFiles(e) {
-  var max = MAX_FILES;
   var newFiles = Array.from(e.target.files);
-  uploadedFiles = uploadedFiles.concat(newFiles).slice(0, max);
+  // Replace previous files (don't accumulate across separate uploads)
+  uploadedFiles = newFiles.slice(0, MAX_FILES);
   resetAnalysisState();
   renderThumbs();
   document.getElementById('fileInput').value = '';
@@ -374,33 +375,15 @@ function renderThumbs() {
   var c = document.getElementById('thumbnails');
   c.innerHTML = '';
   uploadedFiles.forEach(function(file, i) {
-    var isDcm = file.name.toLowerCase().endsWith('.dcm') || file.type === 'application/dicom';
     var div = document.createElement('div');
     div.className = 'thumb' + (i===0?' selected':'');
     div.onclick = (function(f,idx){ return function(){ previewFile(f,idx); }; })(file,i);
 
-    if (isDcm) {
-      var lbl = document.createElement('div');
-      lbl.className = 'dcm-label';
-      lbl.innerHTML = '<span>DCM</span><span style="color:#555;font-size:8px">' + file.name.slice(0,8) + '</span>';
-      div.appendChild(lbl);
-      // Try DICOM render
-      parseDicom(file, function(dataUrl) {
-        if (dataUrl) {
-          lbl.style.display = 'none';
-          var img = document.createElement('img');
-          img.src = dataUrl; img.alt = 'dicom';
-          div.insertBefore(img, div.firstChild);
-          if (i === 0) showInViewer(dataUrl);
-        }
-      });
-    } else {
-      var url = URL.createObjectURL(file);
-      var img = document.createElement('img');
-      img.src = url; img.alt = 'slice ' + (i+1);
-      div.appendChild(img);
-      if (i === 0) showInViewer(url);
-    }
+    var url = URL.createObjectURL(file);
+    var img = document.createElement('img');
+    img.src = url; img.alt = 'image ' + (i+1);
+    div.appendChild(img);
+    if (i === 0) showInViewer(url);
 
     var removeBtn = document.createElement('button');
     removeBtn.className = 'remove';
@@ -416,12 +399,7 @@ function removeFile(i) { uploadedFiles.splice(i,1); resetAnalysisState(); render
 
 function previewFile(file, idx) {
   document.querySelectorAll('.thumb').forEach(function(t,i){ t.classList.toggle('selected', i===idx); });
-  var isDcm = file.name.toLowerCase().endsWith('.dcm');
-  if (isDcm) {
-    parseDicom(file, function(dataUrl){ if(dataUrl) showInViewer(dataUrl); });
-  } else {
-    showInViewer(URL.createObjectURL(file));
-  }
+  showInViewer(URL.createObjectURL(file));
 }
 
 function showInViewer(src) {
@@ -437,54 +415,7 @@ function showInViewer(src) {
   img.src = src;
 }
 
-// ── DICOM parser ───────────────────────────────────────
-function parseDicom(file, callback) {
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      var buf = e.target.result;
-      var bytes = new Uint8Array(buf);
-      var dv = new DataView(buf);
-      var rows=512, cols=512, bits=16, wc=null, ww=null, slope=1, intercept=0, pixOff=-1;
 
-      for (var i=132; i<bytes.length-12; i++) {
-        var g = bytes[i]|(bytes[i+1]<<8);
-        var el = bytes[i+2]|(bytes[i+3]<<8);
-        if (g===0x0028&&el===0x0010) rows=bytes[i+8]|(bytes[i+9]<<8);
-        if (g===0x0028&&el===0x0011) cols=bytes[i+8]|(bytes[i+9]<<8);
-        if (g===0x0028&&el===0x0100) bits=bytes[i+8]|(bytes[i+9]<<8);
-        if (g===0x0028&&el===0x1050) { var vr1=String.fromCharCode(bytes[i+4],bytes[i+5]); var off1=(vr1==='DS')?i+12:i+8; wc=parseFloat(String.fromCharCode.apply(null,bytes.slice(off1,off1+16)).split('\\')[0])||40; }
-        if (g===0x0028&&el===0x1051) { var vr2=String.fromCharCode(bytes[i+4],bytes[i+5]); var off2=(vr2==='DS')?i+12:i+8; ww=parseFloat(String.fromCharCode.apply(null,bytes.slice(off2,off2+16)).split('\\')[0])||400; }
-        if (g===0x0028&&el===0x1053) { var len3=dv.getUint32(i+4,true); slope=parseFloat(String.fromCharCode.apply(null,bytes.slice(i+8,i+8+Math.min(len3,20))))||1; }
-        if (g===0x0028&&el===0x1052) { var len4=dv.getUint32(i+4,true); intercept=parseFloat(String.fromCharCode.apply(null,bytes.slice(i+8,i+8+Math.min(len4,20))))||0; }
-        if (g===0x7FE0&&el===0x0010) {
-          var vr=String.fromCharCode(bytes[i+4],bytes[i+5]);
-          pixOff=(vr==='OB'||vr==='OW')?i+12:i+8;
-          break;
-        }
-      }
-
-      if (pixOff<0||pixOff>=bytes.length){ callback(null); return; }
-      if (!wc) wc=40; if (!ww) ww=400;
-      var lower=wc-ww/2, upper=wc+ww/2;
-      var total=rows*cols;
-      var canvas=document.createElement('canvas');
-      canvas.width=cols; canvas.height=rows;
-      var ctx=canvas.getContext('2d');
-      var imgData=ctx.createImageData(cols,rows);
-      for (var p=0;p<total;p++) {
-        var raw=(bits===16)?dv.getInt16(pixOff+p*2,true):bytes[pixOff+p];
-        var hu=raw*slope+intercept;
-        var val=Math.max(0,Math.min(255,((hu-lower)/(upper-lower))*255));
-        imgData.data[p*4]=val; imgData.data[p*4+1]=val; imgData.data[p*4+2]=val; imgData.data[p*4+3]=255;
-      }
-      ctx.putImageData(imgData,0,0);
-      callback(canvas.toDataURL('image/png'));
-    } catch(err) { callback(null); }
-  };
-  reader.onerror = function(){ callback(null); };
-  reader.readAsArrayBuffer(file);
-}
 
 // ── Canvas overlay ─────────────────────────────────────
 function drawCanvas(img, analysis) {
@@ -567,14 +498,6 @@ function fileToBase64(file) {
   });
 }
 
-function dicomToBase64(file) {
-  return new Promise(function(res){
-    parseDicom(file, function(dataUrl){
-      if (!dataUrl) { res(null); return; }
-      resizeImageToBase64(dataUrl).then(function(out){ res(out); });
-    });
-  });
-}
 
 
 
@@ -592,9 +515,7 @@ async function startAnalysis() {
   try {
     var images=[];
     for (var i=0;i<uploadedFiles.length;i++) {
-      var file=uploadedFiles[i];
-      var isDcm=file.name.toLowerCase().endsWith('.dcm')||file.type==='application/dicom';
-      var out=isDcm ? await dicomToBase64(file) : await fileToBase64(file);
+      var out = await fileToBase64(uploadedFiles[i]);
       if (out&&out.data) images.push({media:out.media,data:out.data});
     }
 
@@ -714,20 +635,34 @@ zone.addEventListener('dragleave',function(){zone.classList.remove('drag-over');
 zone.addEventListener('drop',function(e){
   e.preventDefault(); zone.classList.remove('drag-over');
   var dropped=Array.from(e.dataTransfer.files);
-  uploadedFiles=uploadedFiles.concat(dropped).slice(0,MAX_FILES);
+  uploadedFiles=dropped.slice(0,MAX_FILES);
   resetAnalysisState();
   renderThumbs();
 });
 
 // ── Modal ─────────────────────────────────────────────
 function openModal(plan) {
-  if(!plan) return;
-  var d={basic:'Unlock unlimited analyses — $9.99/month.',pro:'Everything in Basic plus multi-AI and PDF — $19.99/month.'};
-  document.getElementById('modalDesc').textContent=d[plan]||'';
+  // Reset modal to form state each time
+  document.getElementById('waitForm').style.display='block';
+  document.getElementById('waitThanks').style.display='none';
   document.getElementById('payModal').classList.add('open');
 }
 function closeModal(){ document.getElementById('payModal').classList.remove('open'); }
-function fakePay(){ closeModal(); freeUsed=0; localStorage.setItem('ms_used',0); updateUsagePill(); alert('Payment successful! (Demo — Stripe coming soon)'); }
+
+function joinWaitlist(){
+  var email=document.getElementById('waitEmail').value.trim();
+  if(!email||email.indexOf('@')<0){ document.getElementById('waitEmail').focus(); return; }
+  // Save to local waitlist (later: send to a real backend / sheet)
+  var list=JSON.parse(localStorage.getItem('ms_waitlist')||'[]');
+  list.push({email:email, time:new Date().toISOString()});
+  localStorage.setItem('ms_waitlist', JSON.stringify(list));
+  // Also send to our server so YOU can collect emails centrally
+  try {
+    fetch('/api/waitlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email})});
+  } catch(e){}
+  document.getElementById('waitForm').style.display='none';
+  document.getElementById('waitThanks').style.display='block';
+}
 
 // ── Feedback ──────────────────────────────────────────
 function setRating(r) {
