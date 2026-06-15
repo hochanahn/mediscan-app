@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediScan AI — Medical Image Analysis</title>
+<style>
+:root {
+  --blue-800:#0C447C;--blue-600:#185FA5;--blue-400:#378ADD;
+  --blue-100:#B5D4F4;--blue-50:#E6F1FB;
+  --gray-100:#f4f4f8;--white:#fff;
+  --danger:#E24B4A;--success:#1D9E75;
+  --text-primary:#1a1a2e;--text-secondary:#5a5a7a;--text-muted:#9a9ab0;
+  --border:#e0e0ee;--rs:6px;--rm:10px;--rl:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--gray-100);color:var(--text-primary);min-height:100vh;}
+header{background:var(--white);border-bottom:1px solid var(--border);padding:0 2rem;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:36px;height:36px;background:var(--blue-600);border-radius:var(--rs);display:flex;align-items:center;justify-content:center;}
+.logo-icon svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2;}
+.logo-name{font-size:18px;font-weight:700;}
+.logo-name span{color:var(--blue-600);}
+.header-right{display:flex;align-items:center;gap:12px;}
+.usage-pill{background:var(--blue-50);color:var(--blue-800);font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;border:1px solid var(--blue-100);}
+.btn-upgrade{background:var(--blue-600);color:#fff;border:none;padding:8px 16px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;}
+.btn-upgrade:hover{background:var(--blue-800);}
+main{max-width:1100px;margin:0 auto;padding:1.5rem;display:grid;grid-template-columns:320px 1fr;gap:1.5rem;}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--rl);padding:1.25rem;}
+.card-title{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:1rem;}
+.scan-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:1rem;}
+.scan-tab{border:1.5px solid var(--border);border-radius:var(--rm);padding:10px 6px;text-align:center;cursor:pointer;transition:all .15s;background:var(--white);}
+.scan-tab:hover{border-color:var(--blue-400);background:var(--blue-50);}
+.scan-tab.active{border-color:var(--blue-600);background:var(--blue-50);}
+.scan-tab svg{width:24px;height:24px;stroke:var(--text-muted);fill:none;stroke-width:1.5;display:block;margin:0 auto 5px;transition:stroke .15s;}
+.scan-tab.active svg{stroke:var(--blue-600);}
+.scan-tab span{font-size:11px;font-weight:600;color:var(--text-secondary);}
+.scan-tab.active span{color:var(--blue-600);}
+.slice-info{background:var(--blue-50);border:1px solid var(--blue-100);border-radius:var(--rm);padding:8px 12px;font-size:11px;color:var(--blue-800);margin-bottom:1rem;line-height:1.5;}
+.upload-zone{border:2px dashed var(--blue-100);border-radius:var(--rm);padding:1.5rem 1rem;text-align:center;cursor:pointer;transition:all .15s;background:var(--gray-100);margin-bottom:.75rem;}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--blue-400);background:var(--blue-50);}
+.upload-zone svg{width:32px;height:32px;stroke:#85B7EB;fill:none;stroke-width:1.5;margin:0 auto 8px;display:block;}
+.upload-zone p{font-size:13px;color:var(--text-secondary);}
+.upload-zone .hint{font-size:11px;color:var(--text-muted);margin-top:3px;}
+#fileInput{display:none;}
+.thumbnails{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:.75rem;}
+.thumb{position:relative;aspect-ratio:1;border-radius:var(--rs);overflow:hidden;border:1px solid var(--border);cursor:pointer;}
+.thumb img,.thumb canvas{width:100%;height:100%;object-fit:cover;background:#000;display:block;}
+.thumb.selected{border:2px solid var(--blue-600);}
+.thumb .remove{position:absolute;top:2px;right:2px;width:16px;height:16px;background:rgba(0,0,0,.65);border:none;border-radius:50%;color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.thumb .dcm-label{position:absolute;inset:0;background:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+.thumb .dcm-label span{color:#378ADD;font-size:9px;font-weight:700;}
+.btn-analyze{width:100%;background:var(--blue-600);color:#fff;border:none;border-radius:var(--rm);padding:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .15s;}
+.btn-analyze:hover:not(:disabled){background:var(--blue-800);}
+.btn-analyze:disabled{background:var(--border);color:var(--text-muted);cursor:not-allowed;}
+.btn-analyze svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+.api-setup{background:var(--white);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.25rem;margin-bottom:1rem;}
+.api-setup p{font-size:11px;color:var(--text-secondary);margin-bottom:7px;}
+.api-row{display:flex;gap:6px;}
+.api-row input{flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:12px;font-family:monospace;background:var(--gray-100);color:var(--text-primary);}
+.api-row input:focus{outline:2px solid var(--blue-400);border-color:transparent;}
+.btn-save{background:var(--blue-600);color:#fff;border:none;padding:8px 14px;border-radius:var(--rs);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.api-saved{display:none;align-items:center;gap:5px;font-size:11px;color:var(--success);font-weight:600;margin-top:5px;}
+.result-panel{display:flex;flex-direction:column;gap:1rem;}
+.viewer-box{background:#000;border-radius:var(--rl);overflow:hidden;position:relative;aspect-ratio:1;display:flex;align-items:center;justify-content:center;}
+.viewer-box canvas{max-width:100%;max-height:100%;display:block;}
+.viewer-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#444;gap:8px;}
+.viewer-empty svg{width:40px;height:40px;stroke:#333;fill:none;stroke-width:1.5;}
+.viewer-empty p{font-size:13px;}
+.viewer-controls{position:absolute;bottom:10px;right:10px;display:flex;gap:6px;}
+.viewer-btn{background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:#fff;padding:5px 10px;border-radius:var(--rs);font-size:11px;cursor:pointer;}
+.viewer-btn:hover{background:rgba(255,255,255,.15);}
+.viewer-btn.active{background:rgba(24,95,165,.7);border-color:var(--blue-400);}
+.report-box{background:var(--white);border:1px solid var(--border);border-radius:var(--rl);padding:1.25rem;}
+.result-empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:180px;color:var(--text-muted);text-align:center;gap:8px;}
+.result-empty-state svg{width:36px;height:36px;stroke:var(--border);fill:none;stroke-width:1.5;}
+.result-empty-state p{font-size:13px;line-height:1.6;}
+.loading-state{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:180px;gap:12px;}
+.spinner{width:36px;height:36px;border:3px solid var(--blue-50);border-top-color:var(--blue-600);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-state p{font-size:13px;color:var(--text-secondary);}
+.loading-model{font-size:11px;color:var(--text-muted);}
+.result-content{display:none;}
+.result-header{display:flex;align-items:center;gap:8px;padding-bottom:.75rem;margin-bottom:.75rem;border-bottom:1px solid var(--border);}
+.result-badge{background:var(--blue-50);color:var(--blue-800);font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em;}
+.result-type{font-size:12px;color:var(--text-muted);}
+.score-row{display:flex;align-items:center;gap:10px;margin-bottom:1rem;padding:10px 14px;background:var(--gray-100);border-radius:var(--rm);}
+.score-label{font-size:12px;color:var(--text-secondary);white-space:nowrap;}
+.score-track{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden;}
+.score-fill{height:100%;border-radius:4px;transition:width .6s ease;}
+.score-num{font-size:16px;font-weight:700;min-width:32px;text-align:right;}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-secondary);}
+.legend-dot{width:10px;height:10px;border-radius:50%;}
+.findings-list{display:flex;flex-direction:column;gap:8px;margin-bottom:1rem;}
+.finding-item{border:1px solid var(--border);border-radius:var(--rm);overflow:hidden;transition:border-color .15s;}
+.finding-item:hover{border-color:#85B7EB;}
+.finding-header{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;background:var(--white);}
+.finding-rank{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+.rank-1{background:#FEF3F2;color:#B42318;}
+.rank-2{background:#FFF8EC;color:#92400E;}
+.rank-3{background:var(--blue-50);color:var(--blue-800);}
+.rank-4{background:#ECFDF3;color:#065F46;}
+.rank-5{background:var(--gray-100);color:var(--text-secondary);}
+.finding-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.finding-title{flex:1;font-size:13px;font-weight:600;color:var(--text-primary);}
+.finding-loc{font-size:11px;color:var(--text-muted);background:var(--gray-100);padding:2px 7px;border-radius:10px;white-space:nowrap;}
+.finding-chevron{width:14px;height:14px;stroke:var(--text-muted);fill:none;stroke-width:2;transition:transform .2s;flex-shrink:0;}
+.finding-item.open .finding-chevron{transform:rotate(180deg);}
+.finding-detail{display:none;padding:10px 12px;background:var(--gray-100);border-top:1px solid var(--border);font-size:12px;color:var(--text-secondary);line-height:1.7;}
+.finding-item.open .finding-detail{display:block;}
+.detail-toggle{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--blue-600);font-weight:600;cursor:pointer;background:none;border:none;padding:0;margin:.75rem 0 .5rem;}
+.detail-toggle svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;transition:transform .2s;}
+.detail-body{display:none;font-size:11px;color:var(--text-secondary);line-height:1.7;padding:8px 12px;background:var(--gray-100);border-radius:var(--rs);}
+.detail-body.open{display:block;}
+.disclaimer{margin-top:.75rem;padding:8px 12px;background:#FFF8EC;border:1px solid #FDE68A;border-radius:var(--rm);font-size:11px;color:#92400E;line-height:1.5;}
+.plans-section{grid-column:1/-1;}
+.plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.plan{border:1.5px solid var(--border);border-radius:var(--rm);padding:1.1rem;cursor:pointer;transition:all .15s;position:relative;}
+.plan:hover{border-color:var(--blue-400);}
+.plan.featured{border-color:var(--blue-600);border-width:2px;}
+.plan-popular{position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:var(--blue-600);color:#fff;font-size:9px;font-weight:700;padding:2px 10px;border-radius:20px;white-space:nowrap;}
+.plan-name{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;}
+.plan-price{font-size:22px;font-weight:700;}
+.plan-price sub{font-size:12px;font-weight:400;color:var(--text-muted);}
+.plan-features{margin-top:8px;}
+.plan-features li{font-size:11px;color:var(--text-secondary);list-style:none;padding:2px 0;display:flex;align-items:center;gap:5px;}
+.plan-features li::before{content:'✓';color:var(--success);font-weight:700;font-size:10px;}
+.fb-section{grid-column:1/-1;}
+.rb{background:var(--gray-100);border:1px solid var(--border);border-radius:var(--rs);padding:7px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text-secondary);transition:all .15s;flex:1;}
+.rb:hover{border-color:var(--blue-400);color:var(--blue-600);}
+.rb.active{background:var(--blue-600);border-color:var(--blue-600);color:#fff;}
+.rb.top.active{background:#E24B4A;border-color:#E24B4A;}
+.fb-card{background:var(--gray-100);border-radius:var(--rm);padding:10px 12px;border-left:3px solid var(--blue-400);margin-bottom:8px;}
+.fb-card.high{border-left-color:#E24B4A;}
+.fb-card-header{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.fb-cat{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:var(--blue-50);color:var(--blue-800);}
+.fb-time{font-size:10px;color:var(--text-muted);margin-left:auto;}
+.fb-text{font-size:12px;color:var(--text-secondary);line-height:1.5;}
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center;}
+.modal-backdrop.open{display:flex;}
+.modal{background:var(--white);border-radius:var(--rl);padding:1.75rem;width:90%;max-width:380px;}
+.modal h2{font-size:17px;font-weight:700;margin-bottom:5px;}
+.modal p{font-size:13px;color:var(--text-secondary);margin-bottom:1rem;}
+.modal input{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;margin-bottom:8px;background:var(--gray-100);}
+.modal-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.modal-btns{display:flex;gap:8px;}
+.modal-btns button{flex:1;padding:10px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;}
+.btn-cancel{background:var(--gray-100);border:1px solid var(--border);color:var(--text-secondary);}
+.btn-pay{background:var(--blue-600);border:none;color:#fff;}
+@media(max-width:700px){main{grid-template-columns:1fr;}.plans-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg></div>
+    <span class="logo-name">Medi<span>Scan</span> AI</span>
+  </div>
+  <div class="header-right">
+    <span class="usage-pill" id="usagePill">3 free analyses left</span>
+    <button class="btn-upgrade" onclick="openModal('basic')">Upgrade</button>
+  </div>
+</header>
+
+<main>
+  <!-- Left panel -->
+  <div style="display:flex;flex-direction:column;gap:1rem;">
+    <div class="card">
+      <div class="card-title">Scan type</div>
+      <div class="scan-tabs">
+        <div class="scan-tab active" onclick="selectType(this,'X-Ray')">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h4"/></svg>
+          <span>X-Ray</span>
+        </div>
+        <div class="scan-tab" onclick="selectType(this,'CT Scan')">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M3 12h5M16 12h5"/></svg>
+          <span>CT Scan</span>
+        </div>
+        <div class="scan-tab" onclick="selectType(this,'MRI')">
+          <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="5"/><ellipse cx="12" cy="12" rx="5" ry="9"/></svg>
+          <span>MRI</span>
+        </div>
+      </div>
+      <div class="slice-info">📋 <span id="sliceText">Up to <strong>5 images</strong>. Include PA and lateral views if available.</span></div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>Click to upload or drag & drop</p>
+        <div class="hint">JPEG · PNG · DICOM (.dcm) · Max 20MB</div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*,.dcm,application/dicom" multiple onchange="handleFiles(event)">
+      <div class="thumbnails" id="thumbnails"></div>
+      <button class="btn-analyze" id="analyzeBtn" onclick="startAnalysis()" disabled>
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Analyze with AI
+      </button>
+    </div>
+    <div class="api-setup card">
+      <div class="card-title">Claude API key</div>
+      <p>Get your key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--blue-600)">console.anthropic.com</a> · stored only in your browser</p>
+      <div class="api-row">
+        <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+        <button class="btn-save" onclick="saveApiKey()">Save</button>
+      </div>
+      <div class="api-saved" id="apiSaved">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+        API key saved
+      </div>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="result-panel">
+    <div class="viewer-box" id="viewerBox">
+      <div class="viewer-empty" id="viewerEmpty">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <p>Image will appear here</p>
+      </div>
+      <canvas id="overlayCanvas" style="display:none;max-width:100%;max-height:100%;"></canvas>
+      <div class="viewer-controls" id="viewerControls" style="display:none;">
+        <button class="viewer-btn active" id="btnOverlay" onclick="toggleOverlay()">Overlay ON</button>
+        <button class="viewer-btn" onclick="clearAll()">Clear</button>
+      </div>
+    </div>
+    <div class="report-box">
+      <div class="card-title">Analysis report</div>
+      <div class="result-empty-state" id="resultEmpty">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <p>Upload a scan and click<br><strong>Analyze with AI</strong></p>
+      </div>
+      <div class="loading-state" id="loadingState">
+        <div class="spinner"></div>
+        <p>Analyzing your scan...</p>
+        <p class="loading-model" id="loadingModel"></p>
+      </div>
+      <div class="result-content" id="resultContent">
+        <div class="result-header">
+          <span class="result-badge">AI Report</span>
+          <span class="result-type" id="resultTypeLabel"></span>
+        </div>
+        <div class="score-row">
+          <span class="score-label">Abnormality score</span>
+          <div class="score-track"><div class="score-fill" id="scoreFill" style="width:0%"></div></div>
+          <span class="score-num" id="scoreNum">—</span>
+        </div>
+        <div class="legend" id="legendRow"></div>
+        <div class="findings-list" id="findingsList"></div>
+        <button class="detail-toggle" id="detailToggle" onclick="toggleDetail()">
+          <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          Show technical details
+        </button>
+        <div class="detail-body" id="detailBody"></div>
+        <div class="disclaimer">⚠️ This AI report is for personal reference only — not a medical diagnosis. Please consult a doctor for any health concerns.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Plans -->
+  <div class="plans-section">
+    <div class="card">
+      <div class="card-title">Plans</div>
+      <div class="plans-grid">
+        <div class="plan">
+          <div class="plan-name">Free</div>
+          <div class="plan-price">$0</div>
+          <ul class="plan-features"><li>3 analyses</li><li>X-Ray only</li><li>Visual overlay</li></ul>
+        </div>
+        <div class="plan featured" onclick="openModal('basic')">
+          <div class="plan-popular">MOST POPULAR</div>
+          <div class="plan-name">Basic</div>
+          <div class="plan-price">$9.99 <sub>/mo</sub></div>
+          <ul class="plan-features"><li>Unlimited analyses</li><li>X-Ray · CT · MRI</li><li>DICOM support</li><li>History</li></ul>
+        </div>
+        <div class="plan" onclick="openModal('pro')">
+          <div class="plan-name">Pro</div>
+          <div class="plan-price">$19.99 <sub>/mo</sub></div>
+          <ul class="plan-features"><li>Everything in Basic</li><li>Multi-AI comparison</li><li>PDF export</li><li>Priority</li></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback -->
+  <div class="fb-section">
+    <div class="card">
+      <div class="card-title">💬 Share your feedback</div>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:1rem;">Help us improve MediScan. Good ideas get shipped.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem;">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:5px;">CATEGORY</div>
+          <select id="fbCategory" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--gray-100);color:var(--text-primary);">
+            <option value="feature">✨ Feature request</option>
+            <option value="accuracy">🎯 Analysis accuracy</option>
+            <option value="ui">🎨 Design / usability</option>
+            <option value="bug">🐛 Bug report</option>
+            <option value="other">💡 Other idea</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:5px;">PRIORITY (1=low · 5=critical)</div>
+          <div style="display:flex;gap:5px;" id="ratingBtns">
+            <button onclick="setRating(1)" class="rb" data-r="1">1</button>
+            <button onclick="setRating(2)" class="rb" data-r="2">2</button>
+            <button onclick="setRating(3)" class="rb active" data-r="3">3</button>
+            <button onclick="setRating(4)" class="rb" data-r="4">4</button>
+            <button onclick="setRating(5)" class="rb top" data-r="5">5🔥</button>
+          </div>
+        </div>
+      </div>
+      <textarea id="fbText" placeholder="What feature do you want? What's confusing? What would make this 10x better?" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--gray-100);color:var(--text-primary);resize:vertical;min-height:80px;font-family:inherit;margin-bottom:8px;"></textarea>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <input type="email" id="fbEmail" placeholder="Email (optional — we'll notify you when your idea ships)" style="flex:1;padding:9px 12px;border:1px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--gray-100);color:var(--text-primary);">
+        <button onclick="submitFeedback()" style="background:var(--blue-600);color:#fff;border:none;padding:9px 20px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">Send ↗</button>
+      </div>
+      <div id="fbSuccess" style="display:none;padding:9px 12px;background:#ECFDF3;border:1px solid #6EE7B7;border-radius:var(--rs);font-size:13px;color:#065F46;font-weight:600;">✓ Feedback saved! Thank you — good ideas get shipped.</div>
+      <div style="margin-top:1.25rem;border-top:1px solid var(--border);padding-top:1rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;">Recent feedback</div>
+          <div style="font-size:11px;color:var(--text-muted);" id="fbCount"></div>
+        </div>
+        <div id="fbList"></div>
+        <p id="fbEmpty" style="font-size:12px;color:var(--text-muted);">No feedback yet — be the first!</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="modal-backdrop" id="payModal">
+  <div class="modal">
+    <h2>Upgrade your plan</h2>
+    <p id="modalDesc">Unlock unlimited analyses.</p>
+    <input type="text" placeholder="Cardholder name">
+    <input type="text" placeholder="Card number">
+    <div class="modal-row">
+      <input type="text" placeholder="MM / YY">
+      <input type="text" placeholder="CVC">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-pay" onclick="fakePay()">Pay with Stripe</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────
+var selectedType = 'X-Ray';
+var uploadedFiles = [];
+var freeUsed = parseInt(localStorage.getItem('ms_used') || '0');
+var FREE_LIMIT = 3;
+var MAX_SLICES = {'X-Ray':5,'CT Scan':10,'MRI':10};
+var SLICE_HINTS = {
+  'X-Ray':'Up to <strong>5 images</strong>. Include PA and lateral views if available.',
+  'CT Scan':'Up to <strong>10 key slices</strong>. Select the most abnormal sections — not all images.',
+  'MRI':'Up to <strong>10 key slices</strong>. Select the most diagnostically important sequences.'
+};
+var overlayOn = true;
+var lastAnalysis = null;
+var currentImageEl = null;
+var fbRating = 3;
+var COLORS = [
+  {stroke:'#E24B4A',fill:'rgba(226,75,74,.18)',dot:'#E24B4A'},
+  {stroke:'#F59E0B',fill:'rgba(245,158,11,.15)',dot:'#F59E0B'},
+  {stroke:'#378ADD',fill:'rgba(55,138,221,.15)',dot:'#378ADD'},
+  {stroke:'#1D9E75',fill:'rgba(29,158,117,.15)',dot:'#1D9E75'},
+  {stroke:'#8B5CF6',fill:'rgba(139,92,246,.15)',dot:'#8B5CF6'}
+];
+
+// ── Usage pill ─────────────────────────────────────────
+function updateUsagePill() {
+  var rem = Math.max(0, FREE_LIMIT - freeUsed);
+  var pill = document.getElementById('usagePill');
+  if (rem > 0) {
+    pill.textContent = rem + ' free analys' + (rem===1?'is':'es') + ' left';
+    pill.style.cssText = 'background:var(--blue-50);color:var(--blue-800);font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;border:1px solid var(--blue-100);';
+  } else {
+    pill.textContent = 'Free limit reached';
+    pill.style.cssText = 'background:#FEF3F2;color:#B42318;font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;border:1px solid #FECACA;';
+  }
+}
+
+// ── Scan type ──────────────────────────────────────────
+function selectType(el, type) {
+  document.querySelectorAll('.scan-tab').forEach(function(t){t.classList.remove('active');});
+  el.classList.add('active');
+  selectedType = type;
+  document.getElementById('sliceText').innerHTML = SLICE_HINTS[type];
+  uploadedFiles = [];
+  renderThumbs();
+  document.getElementById('analyzeBtn').disabled = true;
+}
+
+// ── File handling ──────────────────────────────────────
+function handleFiles(e) {
+  var max = MAX_SLICES[selectedType];
+  var newFiles = Array.from(e.target.files);
+  uploadedFiles = uploadedFiles.concat(newFiles).slice(0, max);
+  renderThumbs();
+  document.getElementById('fileInput').value = '';
+}
+
+function renderThumbs() {
+  var c = document.getElementById('thumbnails');
+  c.innerHTML = '';
+  uploadedFiles.forEach(function(file, i) {
+    var isDcm = file.name.toLowerCase().endsWith('.dcm') || file.type === 'application/dicom';
+    var div = document.createElement('div');
+    div.className = 'thumb' + (i===0?' selected':'');
+    div.onclick = (function(f,idx){ return function(){ previewFile(f,idx); }; })(file,i);
+
+    if (isDcm) {
+      var lbl = document.createElement('div');
+      lbl.className = 'dcm-label';
+      lbl.innerHTML = '<span>DCM</span><span style="color:#555;font-size:8px">' + file.name.slice(0,8) + '</span>';
+      div.appendChild(lbl);
+      // Try DICOM render
+      parseDicom(file, function(dataUrl) {
+        if (dataUrl) {
+          lbl.style.display = 'none';
+          var img = document.createElement('img');
+          img.src = dataUrl; img.alt = 'dicom';
+          div.insertBefore(img, div.firstChild);
+          if (i === 0) showInViewer(dataUrl);
+        }
+      });
+    } else {
+      var url = URL.createObjectURL(file);
+      var img = document.createElement('img');
+      img.src = url; img.alt = 'slice ' + (i+1);
+      div.appendChild(img);
+      if (i === 0) showInViewer(url);
+    }
+
+    var removeBtn = document.createElement('button');
+    removeBtn.className = 'remove';
+    removeBtn.textContent = '×';
+    removeBtn.onclick = (function(idx){ return function(e){ e.stopPropagation(); removeFile(idx); }; })(i);
+    div.appendChild(removeBtn);
+    c.appendChild(div);
+  });
+  document.getElementById('analyzeBtn').disabled = uploadedFiles.length === 0;
+}
+
+function removeFile(i) { uploadedFiles.splice(i,1); renderThumbs(); }
+
+function previewFile(file, idx) {
+  document.querySelectorAll('.thumb').forEach(function(t,i){ t.classList.toggle('selected', i===idx); });
+  var isDcm = file.name.toLowerCase().endsWith('.dcm');
+  if (isDcm) {
+    parseDicom(file, function(dataUrl){ if(dataUrl) showInViewer(dataUrl); });
+  } else {
+    showInViewer(URL.createObjectURL(file));
+  }
+}
+
+function showInViewer(src) {
+  var img = new Image();
+  img.onload = function() {
+    currentImageEl = img;
+    document.getElementById('viewerEmpty').style.display = 'none';
+    var canvas = document.getElementById('overlayCanvas');
+    canvas.style.display = 'block';
+    drawCanvas(img, lastAnalysis);
+    document.getElementById('viewerControls').style.display = 'flex';
+  };
+  img.src = src;
+}
+
+// ── DICOM parser ───────────────────────────────────────
+function parseDicom(file, callback) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var buf = e.target.result;
+      var bytes = new Uint8Array(buf);
+      var dv = new DataView(buf);
+      var rows=512, cols=512, bits=16, wc=null, ww=null, slope=1, intercept=0, pixOff=-1;
+
+      for (var i=132; i<bytes.length-12; i++) {
+        var g = bytes[i]|(bytes[i+1]<<8);
+        var el = bytes[i+2]|(bytes[i+3]<<8);
+        if (g===0x0028&&el===0x0010) rows=bytes[i+8]|(bytes[i+9]<<8);
+        if (g===0x0028&&el===0x0011) cols=bytes[i+8]|(bytes[i+9]<<8);
+        if (g===0x0028&&el===0x0100) bits=bytes[i+8]|(bytes[i+9]<<8);
+        if (g===0x0028&&el===0x1050) { var vr1=String.fromCharCode(bytes[i+4],bytes[i+5]); var off1=(vr1==='DS')?i+12:i+8; wc=parseFloat(String.fromCharCode.apply(null,bytes.slice(off1,off1+16)).split('\\')[0])||40; }
+        if (g===0x0028&&el===0x1051) { var vr2=String.fromCharCode(bytes[i+4],bytes[i+5]); var off2=(vr2==='DS')?i+12:i+8; ww=parseFloat(String.fromCharCode.apply(null,bytes.slice(off2,off2+16)).split('\\')[0])||400; }
+        if (g===0x0028&&el===0x1053) { var len3=dv.getUint32(i+4,true); slope=parseFloat(String.fromCharCode.apply(null,bytes.slice(i+8,i+8+Math.min(len3,20))))||1; }
+        if (g===0x0028&&el===0x1052) { var len4=dv.getUint32(i+4,true); intercept=parseFloat(String.fromCharCode.apply(null,bytes.slice(i+8,i+8+Math.min(len4,20))))||0; }
+        if (g===0x7FE0&&el===0x0010) {
+          var vr=String.fromCharCode(bytes[i+4],bytes[i+5]);
+          pixOff=(vr==='OB'||vr==='OW')?i+12:i+8;
+          break;
+        }
+      }
+
+      if (pixOff<0||pixOff>=bytes.length){ callback(null); return; }
+      if (!wc) wc=40; if (!ww) ww=400;
+      var lower=wc-ww/2, upper=wc+ww/2;
+      var total=rows*cols;
+      var canvas=document.createElement('canvas');
+      canvas.width=cols; canvas.height=rows;
+      var ctx=canvas.getContext('2d');
+      var imgData=ctx.createImageData(cols,rows);
+      for (var p=0;p<total;p++) {
+        var raw=(bits===16)?dv.getInt16(pixOff+p*2,true):bytes[pixOff+p];
+        var hu=raw*slope+intercept;
+        var val=Math.max(0,Math.min(255,((hu-lower)/(upper-lower))*255));
+        imgData.data[p*4]=val; imgData.data[p*4+1]=val; imgData.data[p*4+2]=val; imgData.data[p*4+3]=255;
+      }
+      ctx.putImageData(imgData,0,0);
+      callback(canvas.toDataURL('image/png'));
+    } catch(err) { callback(null); }
+  };
+  reader.onerror = function(){ callback(null); };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Canvas overlay ─────────────────────────────────────
+function drawCanvas(img, analysis) {
+  var canvas = document.getElementById('overlayCanvas');
+  var box = document.getElementById('viewerBox');
+  var maxW = box.clientWidth || 500;
+  var scale = Math.min(maxW/img.naturalWidth, maxW/img.naturalHeight, 1);
+  canvas.width = img.naturalWidth*scale;
+  canvas.height = img.naturalHeight*scale;
+  var ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  if (!analysis||!overlayOn) return;
+  analysis.findings.forEach(function(f,i){
+    if(!f.bbox) return;
+    var col=COLORS[i%COLORS.length];
+    var x=f.bbox.x*canvas.width, y=f.bbox.y*canvas.height;
+    var w=f.bbox.w*canvas.width, h=f.bbox.h*canvas.height;
+    ctx.fillStyle=col.fill; ctx.fillRect(x,y,w,h);
+    ctx.strokeStyle=col.stroke; ctx.lineWidth=2.5; ctx.strokeRect(x,y,w,h);
+    ctx.fillStyle=col.stroke; ctx.font='bold 12px sans-serif';
+    var lbl=f.rank+'.'+(f.location?(' '+f.location):'');
+    var tw=ctx.measureText(lbl).width;
+    ctx.fillRect(x,y-18,tw+10,18);
+    ctx.fillStyle='#fff'; ctx.fillText(lbl,x+5,y-4);
+  });
+}
+
+function toggleOverlay() {
+  overlayOn=!overlayOn;
+  var btn=document.getElementById('btnOverlay');
+  btn.textContent=overlayOn?'Overlay ON':'Overlay OFF';
+  btn.classList.toggle('active',overlayOn);
+  if(currentImageEl) drawCanvas(currentImageEl,lastAnalysis);
+}
+
+function clearAll() {
+  uploadedFiles=[]; lastAnalysis=null; currentImageEl=null;
+  renderThumbs();
+  document.getElementById('overlayCanvas').style.display='none';
+  document.getElementById('viewerEmpty').style.display='flex';
+  document.getElementById('viewerControls').style.display='none';
+  document.getElementById('resultContent').style.display='none';
+  document.getElementById('resultEmpty').style.display='flex';
+}
+
+// ── API key ────────────────────────────────────────────
+function saveApiKey() {
+  var key=document.getElementById('apiKeyInput').value.trim();
+  if(!key) return;
+  localStorage.setItem('ms_claude_key',key);
+  document.getElementById('apiSaved').style.display='flex';
+  document.getElementById('apiKeyInput').value='';
+  document.getElementById('apiKeyInput').placeholder='API key saved ✓';
+}
+
+// ── File to base64 ────────────────────────────────────
+function fileToBase64(file) {
+  return new Promise(function(res,rej){
+    var r=new FileReader();
+    r.onload=function(e){ res(e.target.result.split(',')[1]); };
+    r.onerror=rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function dicomToBase64(file) {
+  return new Promise(function(res){
+    parseDicom(file, function(dataUrl){
+      res(dataUrl ? dataUrl.split(',')[1] : null);
+    });
+  });
+}
+
+// ── System prompt ─────────────────────────────────────
+function SYSTEM_PROMPT(type) {
+  return 'You are an expert radiologist AI. Analyze the medical image(s) and respond ONLY with a JSON object.\n\nRULES:\n1. Check for abnormalities FIRST before declaring normal\n2. Compare LEFT vs RIGHT sides for asymmetry\n3. Brain CT: hyperdense (bright) = possible bleeding. NEVER miss hemorrhage.\n4. Chest X-ray: check lungs, heart, mediastinum, bones separately\n5. NEVER say normal unless all structures are checked\n6. Flag asymmetry or bright lesions as finding #1 urgent\n\nJSON format (respond with ONLY this, no markdown):\n{"overall_score":<0-100>,"overall":"<one sentence plain English>","findings":[{"rank":<1-5>,"title":"<plain English>","severity":"<urgent|attention|normal>","location":"<e.g. Right lower lobe>","score":<0-100>,"summary":"<1-2 sentences, no jargon>","detail":"<technical detail>","bbox":{"x":0.0,"y":0.0,"w":0.0,"h":0.0}}],"technical":{"image_quality":"<brief>","limitations":"<what AI cannot determine>","scan_parameters":"<visible params>"}}';
+}
+
+// ── Analysis ──────────────────────────────────────────
+async function startAnalysis() {
+  if (!uploadedFiles.length) return;
+  if (freeUsed >= FREE_LIMIT) { openModal('basic'); return; }
+  var apiKey = localStorage.getItem('ms_claude_key');
+  if (!apiKey) { alert('Please enter your Claude API key first.'); return; }
+
+  document.getElementById('resultEmpty').style.display='none';
+  document.getElementById('resultContent').style.display='none';
+  document.getElementById('loadingState').style.display='flex';
+  document.getElementById('analyzeBtn').disabled=true;
+
+  try {
+    var contentBlocks=[];
+    for (var i=0;i<uploadedFiles.length;i++) {
+      var file=uploadedFiles[i];
+      var isDcm=file.name.toLowerCase().endsWith('.dcm')||file.type==='application/dicom';
+      var b64=isDcm ? await dicomToBase64(file) : await fileToBase64(file);
+      if (b64) contentBlocks.push({type:'image',source:{type:'base64',media_type:'image/png',data:b64}});
+    }
+    contentBlocks.push({type:'text',text:SYSTEM_PROMPT(selectedType)+'\n\nAnalyze as '+selectedType+'. Return ONLY valid JSON, no markdown, no extra text.'});
+
+    var models=['claude-sonnet-4-6','claude-haiku-4-5-20251001'];
+    var data=null; var lastErr=null;
+    outer: for (var m=0;m<models.length;m++) {
+      var model=models[m];
+      for (var attempt=0;attempt<3;attempt++) {
+        document.getElementById('loadingModel').textContent=model+(attempt>0?' · retry '+attempt:'');
+        if (attempt>0) await new Promise(function(r){setTimeout(r,3000*attempt);});
+        var res=await fetch('https://api.anthropic.com/v1/messages',
+          {method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+           body:JSON.stringify({model:model,max_tokens:1500,messages:[{role:'user',content:contentBlocks}]})});
+        data=await res.json();
+        if (!data.error) break outer;
+        lastErr=(data.error&&data.error.message)||'API error';
+        var msg=lastErr.toLowerCase();
+        if (msg.includes('overloaded')||res.status===529||res.status===503) continue;
+        break;
+      }
+      if (!data||!data.error) break;
+    }
+    if (!data||data.error) throw new Error(lastErr||'API error');
+
+    var raw=(data.content&&data.content[0]&&data.content[0].text)?data.content[0].text:'';
+    raw=raw.replace(/```json|```/g,'').trim();
+    var parsed;
+    try { parsed=JSON.parse(raw); }
+    catch(e){ parsed={overall_score:0,overall:'Analysis complete.',findings:[{rank:1,title:'AI Response',severity:'attention',location:'',score:0,summary:raw.slice(0,200),detail:'',bbox:null}],technical:{image_quality:'',limitations:'JSON parse error',scan_parameters:''}}; }
+
+    lastAnalysis=parsed;
+    if (currentImageEl) drawCanvas(currentImageEl,parsed);
+    renderReport(parsed);
+    freeUsed++;
+    localStorage.setItem('ms_used',freeUsed);
+    updateUsagePill();
+  } catch(err) {
+    document.getElementById('findingsList').innerHTML='<div style="padding:1rem;color:var(--danger);font-size:13px">Analysis failed: '+err.message+'</div>';
+    document.getElementById('resultContent').style.display='block';
+  }
+  document.getElementById('loadingState').style.display='none';
+  document.getElementById('analyzeBtn').disabled=false;
+}
+
+// ── Report renderer ───────────────────────────────────
+function renderReport(data) {
+  var score=data.overall_score||0;
+  var sc=score>=60?'#E24B4A':score>=30?'#F59E0B':'#1D9E75';
+  document.getElementById('scoreFill').style.cssText='width:'+score+'%;background:'+sc;
+  document.getElementById('scoreNum').style.cssText='color:'+sc+';font-size:16px;font-weight:700;min-width:32px;text-align:right;';
+  document.getElementById('scoreNum').textContent=score;
+
+  var legend=document.getElementById('legendRow');
+  legend.innerHTML=data.findings.filter(function(f){return f.bbox;}).map(function(f,i){
+    var col=COLORS[i%COLORS.length];
+    return '<div class="legend-item"><div class="legend-dot" style="background:'+col.dot+'"></div><span>'+f.rank+'. '+(f.location||f.title)+'</span></div>';
+  }).join('');
+
+  var list=document.getElementById('findingsList'); list.innerHTML='';
+  data.findings.forEach(function(f,i){
+    var col=COLORS[i%COLORS.length];
+    var sevLabel=f.severity==='urgent'?'🔴 Urgent':f.severity==='attention'?'🟡 See a doctor':'🟢 Normal';
+    var rankCls='rank-'+Math.min(f.rank,5);
+    var item=document.createElement('div');
+    item.className='finding-item'+(i===0?' open':'');
+    item.innerHTML='<div class="finding-header" onclick="this.parentElement.classList.toggle(\'open\')">'
+      +'<div class="finding-rank '+rankCls+'">'+f.rank+'</div>'
+      +'<div class="finding-dot" style="background:'+col.dot+'"></div>'
+      +'<div class="finding-title">'+f.title+'</div>'
+      +(f.location?'<span class="finding-loc">'+f.location+'</span>':'')
+      +'<svg class="finding-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>'
+      +'</div>'
+      +'<div class="finding-detail">'
+      +'<p style="margin-bottom:6px;font-weight:600">'+sevLabel+'</p>'
+      +'<p style="margin-bottom:6px">'+(f.summary||'')+'</p>'
+      +(f.detail?'<p style="font-size:11px;color:var(--text-muted)">'+f.detail+'</p>':'')
+      +'</div>';
+    item.addEventListener('mouseenter',function(idx){ return function(){ if(currentImageEl) highlightFinding(idx); }; }(i));
+    item.addEventListener('mouseleave',function(){ if(currentImageEl) drawCanvas(currentImageEl,lastAnalysis); });
+    list.appendChild(item);
+  });
+
+  var tech=data.technical||{};
+  document.getElementById('detailBody').innerHTML=
+    '<div style="margin-bottom:4px"><strong>Image quality:</strong> '+(tech.image_quality||'—')+'</div>'
+    +'<div style="margin-bottom:4px"><strong>Limitations:</strong> '+(tech.limitations||'—')+'</div>'
+    +'<div style="margin-bottom:4px"><strong>Parameters:</strong> '+(tech.scan_parameters||'—')+'</div>'
+    +(data.overall?'<div style="margin-top:8px;padding:8px;background:var(--blue-50);border-radius:var(--rs);color:var(--blue-800);font-size:12px"><strong>Overall:</strong> '+data.overall+'</div>':'');
+
+  document.getElementById('resultTypeLabel').textContent=selectedType+' · '+uploadedFiles.length+' image'+(uploadedFiles.length>1?'s':'');
+  document.getElementById('resultContent').style.display='block';
+}
+
+function highlightFinding(idx) {
+  if(!currentImageEl||!lastAnalysis) return;
+  var canvas=document.getElementById('overlayCanvas');
+  var ctx=canvas.getContext('2d');
+  ctx.drawImage(currentImageEl,0,0,canvas.width,canvas.height);
+  lastAnalysis.findings.forEach(function(f,i){
+    if(!f.bbox) return;
+    var col=COLORS[i%COLORS.length];
+    var x=f.bbox.x*canvas.width, y=f.bbox.y*canvas.height;
+    var w=f.bbox.w*canvas.width, h=f.bbox.h*canvas.height;
+    ctx.globalAlpha=i===idx?1.0:0.25;
+    ctx.fillStyle=col.fill; ctx.fillRect(x,y,w,h);
+    ctx.strokeStyle=col.stroke; ctx.lineWidth=i===idx?3:1.5; ctx.strokeRect(x,y,w,h);
+    if(i===idx){
+      ctx.globalAlpha=1;
+      ctx.fillStyle=col.stroke; ctx.font='bold 12px sans-serif';
+      var lbl=f.rank+'.'+(f.location?' '+f.location:'');
+      var tw=ctx.measureText(lbl).width;
+      ctx.fillRect(x,y-18,tw+10,18);
+      ctx.fillStyle='#fff'; ctx.fillText(lbl,x+5,y-4);
+    }
+  });
+  ctx.globalAlpha=1;
+}
+
+function toggleDetail() {
+  var t=document.getElementById('detailToggle');
+  var b=document.getElementById('detailBody');
+  t.classList.toggle('open'); b.classList.toggle('open');
+  var open=b.classList.contains('open');
+  t.lastChild.textContent=open?' Hide technical details':' Show technical details';
+}
+
+// ── Drag & drop ───────────────────────────────────────
+var zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',function(e){e.preventDefault();zone.classList.add('drag-over');});
+zone.addEventListener('dragleave',function(){zone.classList.remove('drag-over');});
+zone.addEventListener('drop',function(e){
+  e.preventDefault(); zone.classList.remove('drag-over');
+  var dropped=Array.from(e.dataTransfer.files);
+  uploadedFiles=uploadedFiles.concat(dropped).slice(0,MAX_SLICES[selectedType]);
+  renderThumbs();
+});
+
+// ── Modal ─────────────────────────────────────────────
+function openModal(plan) {
+  if(!plan) return;
+  var d={basic:'Unlock unlimited analyses — $9.99/month.',pro:'Everything in Basic plus multi-AI and PDF — $19.99/month.'};
+  document.getElementById('modalDesc').textContent=d[plan]||'';
+  document.getElementById('payModal').classList.add('open');
+}
+function closeModal(){ document.getElementById('payModal').classList.remove('open'); }
+function fakePay(){ closeModal(); freeUsed=0; localStorage.setItem('ms_used',0); updateUsagePill(); alert('Payment successful! (Demo — Stripe coming soon)'); }
+
+// ── Feedback ──────────────────────────────────────────
+function setRating(r) {
+  fbRating=r;
+  document.querySelectorAll('.rb').forEach(function(b){
+    var br=parseInt(b.dataset.r);
+    b.classList.toggle('active', br<=r);
+  });
+}
+
+function submitFeedback() {
+  var text=document.getElementById('fbText').value.trim();
+  if(!text){ document.getElementById('fbText').focus(); return; }
+  var entry={id:Date.now(),category:document.getElementById('fbCategory').value,rating:fbRating,text:text,email:document.getElementById('fbEmail').value.trim(),time:new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})};
+  var existing=JSON.parse(localStorage.getItem('ms_feedback')||'[]');
+  existing.unshift(entry);
+  localStorage.setItem('ms_feedback',JSON.stringify(existing));
+  document.getElementById('fbText').value='';
+  document.getElementById('fbEmail').value='';
+  document.getElementById('fbSuccess').style.display='block';
+  setTimeout(function(){document.getElementById('fbSuccess').style.display='none';},4000);
+  setRating(3);
+  renderFeedback();
+}
+
+var CAT_LABELS={feature:'✨ Feature',accuracy:'🎯 Accuracy',ui:'🎨 Design',bug:'🐛 Bug',other:'💡 Idea'};
+
+function renderFeedback() {
+  var items=JSON.parse(localStorage.getItem('ms_feedback')||'[]');
+  var list=document.getElementById('fbList');
+  var empty=document.getElementById('fbEmpty');
+  var count=document.getElementById('fbCount');
+  count.textContent=items.length+' entr'+(items.length===1?'y':'ies');
+  if(!items.length){ list.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  list.innerHTML=items.map(function(item){
+    return '<div class="fb-card'+(item.rating>=5?' high':'')+'"><div class="fb-card-header"><span class="fb-cat">'+(CAT_LABELS[item.category]||item.category)+'</span><span style="font-size:11px;color:var(--text-muted)">'+'★'.repeat(item.rating)+'☆'.repeat(5-item.rating)+'</span><span class="fb-time">'+item.time+'</span></div><div class="fb-text">'+item.text+'</div></div>';
+  }).join('');
+}
+
+// ── Init ──────────────────────────────────────────────
+updateUsagePill();
+renderFeedback();
+setRating(3);
+if (localStorage.getItem('ms_claude_key')) {
+  document.getElementById('apiSaved').style.display='flex';
+  document.getElementById('apiKeyInput').placeholder='API key saved ✓';
+}
+</script>
+</body>
+</html>
