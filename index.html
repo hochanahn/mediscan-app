@@ -569,11 +569,36 @@ function saveApiKey() {
   document.getElementById('apiKeyInput').placeholder='API key saved ✓';
 }
 
-// ── File to base64 ────────────────────────────────────
+// ── Image resize for Claude API (max 1568px, JPEG) ────
+function resizeImageToBase64(src) {
+  return new Promise(function(res){
+    var img=new Image();
+    img.onload=function(){
+      var MAX=1568;
+      var w=img.naturalWidth, h=img.naturalHeight;
+      if (w>MAX||h>MAX){
+        var scale=Math.min(MAX/w, MAX/h);
+        w=Math.round(w*scale); h=Math.round(h*scale);
+      }
+      var canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      var ctx=canvas.getContext('2d');
+      ctx.fillStyle='#000'; ctx.fillRect(0,0,w,h);
+      ctx.drawImage(img,0,0,w,h);
+      // JPEG quality 0.85 keeps it well under 5MB
+      var dataUrl=canvas.toDataURL('image/jpeg',0.85);
+      res({data:dataUrl.split(',')[1], media:'image/jpeg'});
+    };
+    img.onerror=function(){ res(null); };
+    img.src=src;
+  });
+}
+
+// ── File to resized base64 ────────────────────────────
 function fileToBase64(file) {
   return new Promise(function(res,rej){
     var r=new FileReader();
-    r.onload=function(e){ res(e.target.result.split(',')[1]); };
+    r.onload=function(e){ resizeImageToBase64(e.target.result).then(function(out){ res(out); }); };
     r.onerror=rej;
     r.readAsDataURL(file);
   });
@@ -582,7 +607,8 @@ function fileToBase64(file) {
 function dicomToBase64(file) {
   return new Promise(function(res){
     parseDicom(file, function(dataUrl){
-      res(dataUrl ? dataUrl.split(',')[1] : null);
+      if (!dataUrl) { res(null); return; }
+      resizeImageToBase64(dataUrl).then(function(out){ res(out); });
     });
   });
 }
@@ -609,8 +635,8 @@ async function startAnalysis() {
     for (var i=0;i<uploadedFiles.length;i++) {
       var file=uploadedFiles[i];
       var isDcm=file.name.toLowerCase().endsWith('.dcm')||file.type==='application/dicom';
-      var b64=isDcm ? await dicomToBase64(file) : await fileToBase64(file);
-      if (b64) contentBlocks.push({type:'image',source:{type:'base64',media_type:'image/png',data:b64}});
+      var out=isDcm ? await dicomToBase64(file) : await fileToBase64(file);
+      if (out&&out.data) contentBlocks.push({type:'image',source:{type:'base64',media_type:out.media,data:out.data}});
     }
     contentBlocks.push({type:'text',text:SYSTEM_PROMPT(selectedType)+'\n\nAnalyze as '+selectedType+'. Return ONLY valid JSON, no markdown, no extra text.'});
 
